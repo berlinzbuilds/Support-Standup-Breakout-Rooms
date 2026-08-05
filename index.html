@@ -359,8 +359,7 @@ async function setTier(pid, tier){
   if(!sessionRef) return;
   const cur=checkins[pid]||{}; const t=tier?+tier:null;
   checkins[pid]={...cur, tier:t}; // optimistic
-  const sel=document.querySelector(`.tier-sel[data-pid="${pid}"]`);
-  if(sel) applyTierStyle(sel, t);
+  buildGrid(); // re-sort immediately; Firebase echo won't re-trigger (state unchanged)
   await sessionRef.child(`checkins/${pid}`).update({tier:t});
 }
 async function assignRooms(){
