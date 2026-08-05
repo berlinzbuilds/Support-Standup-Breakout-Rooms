@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>SafelyYou — Breakout Rooms</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px;background:#f3f4f6;color:#111827;min-height:100vh;}
+.page{max-width:720px;margin:0 auto;padding:1.5rem 1rem 3rem;}
+.header{display:flex;align-items:center;gap:10px;margin-bottom:1.25rem;}
+.header h1{font-size:17px;font-weight:600;}
+.header .dot{width:8px;height:8px;border-radius:50%;background:#10b981;flex-shrink:0;}
+.header .dot.red{background:#ef4444;}
+
+/* Tabs */
+.tabs{display:flex;border-bottom:1px solid #e5e7eb;margin-bottom:1.25rem;}
+.tab{background:none;border:none;border-bottom:2px solid transparent;padding:8px 18px;font-size:14px;cursor:pointer;color:#6b7280;font-family:inherit;margin-bottom:-1px;transition:color .15s;}
+.tab.active{font-weight:500;color:#2563eb;border-bottom-color:#2563eb;}
+
+/* Form */
+input,select,textarea{font-family:inherit;font-size:14px;padding:7px 10px;border:1px solid #d1d5db;border-radius:8px;background:#fff;color:#111827;outline:none;width:100%;}
+input:focus,select:focus,textarea:focus{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1);}
+input,select{width:auto;}
+button{font-family:inherit;font-size:13px;padding:7px 14px;border-radius:8px;border:1px solid #d1d5db;background:#fff;cursor:pointer;display:inline-flex;align-items:center;gap:6px;color:#374151;white-space:nowrap;}
+button:hover{background:#f9fafb;}
+button.primary{background:#2563eb;color:#fff;border-color:#2563eb;font-size:14px;}
+button.primary:hover{background:#1d4ed8;}
+button:disabled{opacity:.5;cursor:not-allowed;}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+textarea{width:100%;resize:vertical;}
+
+/* Card */
+.card{background:#fff;border-radius:12px;border:1px solid #e5e7eb;padding:1rem 1.25rem;margin-bottom:10px;}
+
+/* Tier badges */
+.t1b{background:#dbeafe;color:#1d4ed8;}.t2b{background:#ede9fe;color:#6d28d9;}.t3b{background:#d1fae5;color:#065f46;}
+.badge{font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;flex-shrink:0;display:inline-block;}
+
+/* Roster */
+.roster-wrap{background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;}
+.roster-row{display:flex;align-items:center;gap:10px;padding:9px 1.25rem;border-bottom:1px solid #f3f4f6;}
+.roster-row:last-child{border-bottom:none;}
+.del-btn{background:none;border:none;cursor:pointer;color:#d1d5db;padding:0 2px;font-size:17px;line-height:1;transition:color .15s;}
+.del-btn:hover{color:#ef4444;}
+
+/* Check-in grid */
+.names-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.5rem;}
+.name-card{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:10px;border:2px solid #e5e7eb;background:#f9fafb;cursor:pointer;user-select:none;transition:border-color .1s,background .1s;}
+.name-card:hover{border-color:#93c5fd;background:#eff6ff;}
+.name-card.checked{background:#ecfdf5;border-color:#6ee7b7;}
+.chk{width:20px;height:20px;border-radius:50%;border:2px solid #d1d5db;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;background:#fff;transition:all .1s;}
+.name-card.checked .chk{background:#10b981;border-color:#10b981;color:#fff;}
+.cname{flex:1;font-size:15px;color:#111827;}
+.name-card.checked .cname{font-weight:500;color:#065f46;}
+.tier-sel{font-size:12px;font-weight:600;padding:3px 5px;border-radius:6px;cursor:pointer;min-width:46px;border:1.5px solid #d1d5db;background:#f9fafb;color:#6b7280;transition:all .1s;}
+
+/* Room cards */
+.rooms-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.room-card{border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+.room-head{padding:14px 16px;display:flex;justify-content:space-between;align-items:center;}
+.room-body{background:#f9fafb;padding:12px 16px;}
+.mrow{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f3f4f6;}
+.mrow:last-child{border-bottom:none;}
+.mname{font-size:16px;color:#111827;}
+.cov-row{display:flex;gap:4px;margin-top:10px;padding-top:8px;border-top:1px solid #e5e7eb;}
+.cov{font-size:11px;padding:2px 8px;border-radius:4px;border:1px solid #e5e7eb;color:#9ca3af;background:#f3f4f6;}
+.cov.hit{}.cov.t1b{background:#dbeafe;color:#1d4ed8;border-color:#bfdbfe;}
+.cov.t2b{background:#ede9fe;color:#6d28d9;border-color:#ddd6fe;}
+.cov.t3b{background:#d1fae5;color:#065f46;border-color:#a7f3d0;}
+
+/* Idle/empty states */
+.empty{text-align:center;padding:3rem 1rem;color:#9ca3af;}
+.empty .ico{font-size:36px;margin-bottom:16px;}
+.empty h2{font-size:16px;font-weight:500;color:#374151;margin-bottom:8px;}
+.empty p{font-size:14px;line-height:1.6;margin-bottom:20px;max-width:380px;margin-left:auto;margin-right:auto;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.pulse{animation:pulse 2s infinite;display:inline-block;}
+
+/* Misc */
+.hint{font-size:12px;color:#9ca3af;margin-top:8px;}
+.save-ok{font-size:12px;color:#10b981;transition:opacity .3s;}
+.count-text{font-size:14px;color:#6b7280;}
+
+/* Setup screen */
+.setup{max-width:560px;margin:4rem auto;padding:2rem;background:#fff;border-radius:16px;border:1px solid #e5e7eb;}
+.setup h2{font-size:18px;font-weight:600;margin-bottom:8px;}
+.setup .steps{margin:1rem 0 1.5rem;padding-left:1.25rem;}
+.setup .steps li{margin-bottom:10px;line-height:1.5;}
+.setup code{background:#f3f4f6;padding:1px 5px;border-radius:4px;font-size:13px;}
+.setup a{color:#2563eb;}
+</style>
+</head>
+<body>
+
+<!-- ═══ SETUP SCREEN (shown until Firebase is configured) ═══ -->
+<div id="setup-screen" style="display:none;" class="page">
+  <div class="setup">
+    <h2>⚙️ Firebase setup required</h2>
+    <p style="color:#6b7280;margin-bottom:1rem;">This tool needs a free Firebase Realtime Database to sync check-ins live across devices. One-time setup, ~10 minutes.</p>
+    <ol class="steps">
+      <li>Go to <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a> and create a project.</li>
+      <li>In your project: <strong>Build → Realtime Database → Create Database → Test mode → Enable.</strong></li>
+      <li>Copy the <strong>Database URL</strong> (e.g. <code>https://your-project-default-rtdb.firebaseio.com</code>).</li>
+      <li>Go to <strong>⚙ Project settings → Your apps → &lt;/&gt; Web → Register app.</strong> Copy the <code>apiKey</code>.</li>
+      <li>Open this HTML file in any text editor. Find <code>PASTE_YOUR_API_KEY_HERE</code> and <code>PASTE_YOUR_DATABASE_URL_HERE</code> and replace them.</li>
+      <li>Save and reopen in your browser — setup done.</li>
+    </ol>
+    <p style="font-size:13px;color:#9ca3af;">To go live for your team: upload the file to GitHub and enable GitHub Pages (see your setup guide).</p>
+  </div>
+</div>
+
+<!-- ═══ MAIN APP ═══ -->
+<div id="app" style="display:none;" class="page">
+  <div class="header">
+    <div class="dot" id="conn-dot"></div>
+    <h1>SafelyYou — Breakout Rooms</h1>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-for="session" id="tb-session">Check-in</button>
+    <button class="tab" data-for="rooms" id="tb-rooms">Rooms</button>
+    <button class="tab" data-for="roster" id="tb-roster">Team roster</button>
+  </div>
+
+  <!-- CHECK-IN TAB -->
+  <div id="panel-session">
+    <div id="sess-idle">
+      <div id="idle-start" class="empty" style="display:none;">
+        <div class="ico">🏠</div>
+        <h2>No active session</h2>
+        <p>Start a session, then share this page URL in Zoom chat so your team can tap their name to check in.</p>
+        <button class="primary" id="start-btn" style="margin:0 auto;font-size:15px;padding:11px 28px;">▶ Start check-in session</button>
+      </div>
+      <div id="idle-no-team" class="empty" style="display:none;">
+        <div class="ico">👥</div>
+        <h2>No team roster yet</h2>
+        <p>Add your team in the <strong>Team roster</strong> tab first, then come back to start a session.</p>
+        <button id="go-roster-btn" style="margin:0 auto;">→ Go to Team roster</button>
+      </div>
+      <div id="idle-waiting" class="empty" style="display:none;">
+        <div class="ico"><span class="pulse">⏳</span></div>
+        <h2>Waiting for session to start…</h2>
+        <p>The host will start shortly. This page updates live.</p>
+      </div>
+    </div>
+    <div id="sess-checkin" style="display:none;">
+      <div style="text-align:center;margin-bottom:1.5rem;">
+        <p style="font-size:19px;font-weight:600;margin-bottom:6px;">Tap your name to join breakout rooms</p>
+        <p id="sess-count" class="count-text"></p>
+      </div>
+      <div id="sess-grid" class="names-grid"></div>
+      <div style="text-align:center;margin-top:.5rem;">
+        <div class="row" style="justify-content:center;">
+          <button class="primary" id="assign-btn" style="font-size:15px;padding:10px 24px;">⚡ Assign to rooms</button>
+          <button id="reset-btn">↺ Reset session</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROOMS TAB -->
+  <div id="panel-rooms" style="display:none;">
+    <div id="rooms-empty" class="empty">
+      <div class="ico">🏠</div>
+      <p>Rooms appear here after the host assigns them from the Check-in tab.</p>
+    </div>
+    <div id="rooms-live" style="display:none;">
+      <div class="row" style="margin-bottom:1rem;">
+        <p style="font-size:15px;font-weight:600;">Room assignments</p>
+        <div class="row" style="margin-left:auto;">
+          <button id="reshuffle-btn">↺ Re-shuffle</button>
+          <button id="new-session-btn">New session</button>
+        </div>
+      </div>
+      <div id="rooms-grid" class="rooms-grid"></div>
+    </div>
+  </div>
+
+  <!-- ROSTER TAB -->
+  <div id="panel-roster" style="display:none;">
+    <div class="row" style="margin-bottom:1rem;justify-content:space-between;">
+      <div id="tier-counts" class="row"></div>
+      <span id="save-ok" class="save-ok" style="opacity:0;"></span>
+    </div>
+    <div class="card">
+      <div class="row">
+        <input id="r-name" placeholder="Full name" style="flex:1;min-width:140px;width:auto;"/>
+        <select id="r-tier" style="width:90px;">
+          <option value="1">Tier 1</option>
+          <option value="2">Tier 2</option>
+          <option value="3">Tier 3</option>
+        </select>
+        <button id="add-btn">+ Add</button>
+        <button id="bulk-toggle">≡ Bulk import</button>
+      </div>
+      <div id="bulk-area" style="display:none;margin-top:12px;">
+        <p style="font-size:13px;color:#6b7280;margin-bottom:6px;">One per line: <code style="background:#f3f4f6;padding:1px 4px;border-radius:3px;">Alice, Tier 1</code> or <code style="background:#f3f4f6;padding:1px 4px;border-radius:3px;">Bob T2</code></p>
+        <textarea id="bulk-text" rows="5" placeholder="Quinn, T2&#10;Nick Scotto, T3&#10;DeCarlo, T2&#10;Todd, T2"></textarea>
+        <div class="row" style="margin-top:8px;">
+          <button id="bulk-import">↑ Import</button>
+          <button id="bulk-cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+    <div id="roster-wrap" class="roster-wrap"></div>
+    <p class="hint" style="text-align:right;">💾 Roster saves to this browser automatically.</p>
+  </div>
+</div>
+
+<script>
+// ┌─────────────────────────────────────────────────────────┐
+// │  CONFIGURATION — replace both values, then save & upload│
+// └─────────────────────────────────────────────────────────┘
+const FIREBASE_CONFIG = {
+  apiKey:      "AIzaSyCRGqXWjNmxinmwccve87d4eTWOac3v9qM",
+  databaseURL: "https://support-standup-breakout-rooms-default-rtdb.firebaseio.com",
+};
+// ──────────────────────────────────────────────────────────
+
+const CONFIGURED = !FIREBASE_CONFIG.apiKey.includes("PASTE_");
+const SESSION_PATH = "sy_breakout/session";
+
+const ROOMS = [
+  {id:"green",  label:"Green Room",  bg:"#047857", fg:"#fff"},
+  {id:"red",    label:"Red Room",    bg:"#b91c1c", fg:"#fff"},
+  {id:"blue",   label:"Blue Room",   bg:"#1d4ed8", fg:"#fff"},
+  {id:"yellow", label:"Yellow Room", bg:"#92400e", fg:"#fff"},
+];
+const TBGC = {1:"#dbeafe", 2:"#ede9fe", 3:"#d1fae5"};
+const TTXC = {1:"#1d4ed8", 2:"#6d28d9", 3:"#065f46"};
+const TCLS = {1:"t1b",     2:"t2b",     3:"t3b"};
+
+// ── Show correct screen ──────────────────────────────────
+if(!CONFIGURED) {
+  document.getElementById("setup-screen").style.display = "";
+} else {
+  document.getElementById("app").style.display = "";
+}
+
+// ── State ────────────────────────────────────────────────
+let db = null, sessionRef = null;
+let roster = [], curPhase = "idle";
+let sessNames = [], checkins = {}, lastRooms = null;
+let _seq = 1; const uid = () => ++_seq;
+
+// ── Firebase init ────────────────────────────────────────
+if(CONFIGURED) {
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.database();
+    sessionRef = db.ref(SESSION_PATH);
+    // Connection state indicator
+    db.ref(".info/connected").on("value", s => {
+      const dot = document.getElementById("conn-dot");
+      if(dot) dot.className = "dot" + (s.val() ? "" : " red");
+    });
+  } catch(e) {
+    console.error("Firebase init error:", e);
+  }
+}
+
+// ── Helpers ──────────────────────────────────────────────
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function toArr(v){ if(!v) return []; return Array.isArray(v) ? v : Object.values(v); }
+function shuffle(a){
+  const r=[...a];
+  for(let i=r.length-1;i>0;i--){const j=0|Math.random()*(i+1);[r[i],r[j]]=[r[j],r[i]];}
+  return r;
+}
+function doAssign(people){
+  const by={1:[],2:[],3:[],u:[]};
+  people.forEach(p=>{const t=+p.tier;by[[1,2,3].includes(t)?t:"u"].push({...p});});
+  [1,2,3].forEach(t=>{by[t]=shuffle(by[t]);});by.u=shuffle(by.u);
+  const rm=ROOMS.map(r=>({...r,members:[]}));const ov=[];
+  [1,2,3].forEach(tier=>{by[tier].forEach((p,i)=>i<4?rm[i].members.push(p):ov.push(p));});
+  [...ov,...by.u].forEach((p,i)=>rm[i%4].members.push(p));
+  return rm;
+}
+function applyTierStyle(el, tier){
+  if(tier && TBGC[tier]){
+    el.style.background=TBGC[tier]; el.style.color=TTXC[tier]; el.style.borderColor="transparent";
+  } else {
+    el.style.background="#f9fafb"; el.style.color="#9ca3af"; el.style.borderColor="#d1d5db";
+  }
+}
+
+// ── Roster (localStorage) ────────────────────────────────
+function loadRoster(){
+  try { const v=localStorage.getItem("sy_roster_v2"); if(v){ roster=JSON.parse(v); _seq=Math.max(_seq,...roster.map(p=>p.id||0)); } } catch(_){}
+}
+function saveRoster(){
+  try { localStorage.setItem("sy_roster_v2",JSON.stringify(roster)); } catch(_){}
+  const el=document.getElementById("save-ok");
+  if(el){ el.textContent="Saved ✓"; el.style.opacity=1; setTimeout(()=>{ el.style.opacity=0; },2000); }
+}
+function addPerson(){
+  const n=document.getElementById("r-name").value.trim(), t=+document.getElementById("r-tier").value;
+  if(!n) return;
+  roster.push({id:uid(), name:n, tier:t});
+  document.getElementById("r-name").value="";
+  saveRoster(); renderRoster(); updateBadges();
+}
+function removePerson(id){
+  roster=roster.filter(p=>p.id!==id);
+  saveRoster(); renderRoster(); updateBadges();
+}
+function doBulk(){
+  document.getElementById("bulk-text").value.split("\n").forEach(l=>{
+    l=l.trim(); if(!l) return;
+    const m=l.match(/t(?:ier)?\s*([1-3])/i), tier=m?+m[1]:1;
+    const name=l.replace(/[,\-\u2013\s]*t(?:ier)?\s*[1-3]/gi,"").trim();
+    if(name) roster.push({id:uid(), name, tier});
+  });
+  document.getElementById("bulk-text").value="";
+  document.getElementById("bulk-area").style.display="none";
+  saveRoster(); renderRoster(); updateBadges();
+}
+function renderRoster(){
+  const el=document.getElementById("roster-wrap"); if(!el) return;
+  if(!roster.length){
+    el.innerHTML='<div class="empty" style="padding:2rem;"><p style="margin:0;">No team members yet. Add people above.</p></div>';
+    return;
+  }
+  el.innerHTML=roster.map((p,i)=>
+    `<div class="roster-row">
+      <span class="badge ${TCLS[p.tier]}">T${p.tier}</span>
+      <span style="flex:1;">${esc(p.name)}</span>
+      <button class="del-btn" data-del="${p.id}" aria-label="Remove ${esc(p.name)}">✕</button>
+    </div>`
+  ).join("");
+}
+function updateBadges(){
+  const tc={1:0,2:0,3:0}; roster.forEach(p=>{ if(tc[p.tier]!==undefined) tc[p.tier]++; });
+  const el=document.getElementById("tier-counts"); if(!el) return;
+  el.innerHTML=[1,2,3].map(t=>
+    `<span class="badge ${TCLS[t]}" style="padding:5px 12px;font-size:13px;">Tier ${t} — ${tc[t]}</span>`
+  ).join("")+`<span style="font-size:13px;color:#9ca3af;margin-left:4px;">${roster.length} total</span>`;
+}
+
+// ── Session write ops ────────────────────────────────────
+async function startSession(){
+  if(!sessionRef) return;
+  const names=roster.map(p=>({id:p.id, name:p.name}));
+  const ci={}; roster.forEach(p=>{ ci[p.id]={checked:false, tier:p.tier}; });
+  await sessionRef.set({ state:"checkin", names, checkins:ci });
+  // onValue fires immediately and updates UI
+}
+async function toggleCheckin(pid){
+  if(!sessionRef) return;
+  const cur=checkins[pid]||{}; const newVal=!cur.checked;
+  checkins[pid]={...cur, checked:newVal}; // optimistic
+  updateCard(pid); updateCount();
+  await sessionRef.child(`checkins/${pid}`).update({checked:newVal});
+}
+async function setTier(pid, tier){
+  if(!sessionRef) return;
+  const cur=checkins[pid]||{}; const t=tier?+tier:null;
+  checkins[pid]={...cur, tier:t}; // optimistic
+  const sel=document.querySelector(`.tier-sel[data-pid="${pid}"]`);
+  if(sel) applyTierStyle(sel, t);
+  await sessionRef.child(`checkins/${pid}`).update({tier:t});
+}
+async function assignRooms(){
+  if(!sessionRef) return;
+  const people=sessNames.filter(n=>checkins[n.id]?.checked).map(n=>({
+    displayName:n.name, tier:checkins[n.id]?.tier||null
+  }));
+  if(!people.length){ alert("No one has checked in yet!"); return; }
+  const rooms=doAssign(people);
+  lastRooms=rooms;
+  await sessionRef.update({ state:"assigned", rooms });
+}
+async function doReshuffle(){
+  if(!sessionRef) return;
+  const people=sessNames.filter(n=>checkins[n.id]?.checked).map(n=>({
+    displayName:n.name, tier:checkins[n.id]?.tier||null
+  }));
+  if(!people.length) return;
+  const rooms=doAssign(people);
+  lastRooms=rooms;
+  await sessionRef.update({ rooms });
+}
+async function resetSession(){
+  if(!sessionRef) return;
+  await sessionRef.remove(); // triggers onValue with null → showIdle
+}
+
+// ── Real-time handler ────────────────────────────────────
+function handleSnapshot(data){
+  const state=data?.state||"idle";
+
+  if(state==="idle"){
+    if(curPhase!=="idle"){ checkins={}; sessNames=[]; lastRooms=null; showRoomsLive(false); showIdle(); }
+    return;
+  }
+
+  if(state==="checkin"){
+    const freshNames=toArr(data.names);
+    const freshCi=data.checkins||{};
+    const namesStr=JSON.stringify(freshNames);
+    if(curPhase!=="checkin"||namesStr!==JSON.stringify(sessNames)){
+      sessNames=freshNames; checkins=freshCi; showCheckin();
+    } else {
+      const prev=JSON.stringify(checkins); checkins=freshCi;
+      if(JSON.stringify(checkins)!==prev){
+        sessNames.forEach(n=>{
+          updateCard(n.id);
+          const sel=document.querySelector(`.tier-sel[data-pid="${n.id}"]`);
+          if(sel){ const t=checkins[n.id]?.tier||null; sel.value=t||""; applyTierStyle(sel,t); }
+        });
+        updateCount();
+      }
+    }
+  }
+
+  if(state==="assigned"){
+    const freshRooms=toArr(data.rooms);
+    if(freshRooms.length && JSON.stringify(freshRooms)!==JSON.stringify(lastRooms)){
+      lastRooms=freshRooms;
+      if(data.names) sessNames=toArr(data.names);
+      if(data.checkins) checkins=data.checkins;
+      renderRooms(freshRooms); showRoomsLive(true);
+      if(curPhase!=="assigned"){ curPhase="assigned"; switchTab("rooms"); }
+    }
+  }
+}
+
+// ── UI helpers ───────────────────────────────────────────
+function buildGrid(){
+  const grid=document.getElementById("sess-grid"); if(!grid) return;
+  grid.innerHTML=sessNames.map(n=>{
+    const st=checkins[n.id]||{}; const tier=st.tier||null;
+    const bg=tier?TBGC[tier]:"#f9fafb", fg=tier?TTXC[tier]:"#9ca3af", bc=tier?"transparent":"#d1d5db";
+    return `<div class="name-card${st.checked?" checked":""}" data-pid="${n.id}">
+      <div class="chk">${st.checked?"✓":""}</div>
+      <span class="cname">${esc(n.name)}</span>
+      <select class="tier-sel" data-pid="${n.id}" style="background:${bg};color:${fg};border-color:${bc};">
+        <option value="" ${!tier?"selected":""}>—</option>
+        <option value="1" ${tier===1?"selected":""}>T1</option>
+        <option value="2" ${tier===2?"selected":""}>T2</option>
+        <option value="3" ${tier===3?"selected":""}>T3</option>
+      </select>
+    </div>`;
+  }).join("");
+}
+function updateCard(pid){
+  const c=document.querySelector(`.name-card[data-pid="${pid}"]`); if(!c) return;
+  const st=checkins[pid]||{};
+  c.classList.toggle("checked",!!st.checked);
+  const chk=c.querySelector(".chk"); if(chk) chk.textContent=st.checked?"✓":"";
+}
+function updateCount(){
+  const el=document.getElementById("sess-count"); if(!el) return;
+  const n=Object.values(checkins).filter(c=>c?.checked).length;
+  el.textContent=`${n} of ${sessNames.length} checked in`;
+}
+function renderRooms(rooms){
+  const grid=document.getElementById("rooms-grid"); if(!grid) return;
+  grid.innerHTML=rooms.map(room=>{
+    const ht=[1,2,3].map(t=>room.members.some(m=>m.tier===t));
+    const members=room.members.length===0
+      ?`<p style="color:#9ca3af;margin:8px 0;">Empty</p>`
+      :room.members.map(m=>
+        `<div class="mrow">
+          ${m.tier?`<span class="badge ${TCLS[m.tier]}">T${m.tier}</span>`:""}
+          <span class="mname">${esc(m.displayName)}</span>
+        </div>`
+      ).join("");
+    const cov=[1,2,3].map((t,idx)=>`<span class="cov${ht[idx]?" "+TCLS[t]:""}">T${t}</span>`).join("");
+    return `<div class="room-card">
+      <div class="room-head" style="background:${room.bg};color:${room.fg};">
+        <span style="font-size:17px;font-weight:600;">${room.label}</span>
+        <span style="font-size:13px;opacity:.85;">${room.members.length} members</span>
+      </div>
+      <div class="room-body">${members}<div class="cov-row">${cov}</div></div>
+    </div>`;
+  }).join("");
+}
+function showRoomsLive(yes){
+  document.getElementById("rooms-empty").style.display=yes?"none":"block";
+  document.getElementById("rooms-live").style.display=yes?"block":"none";
+}
+function showIdle(){
+  curPhase="idle";
+  document.getElementById("sess-idle").style.display="block";
+  document.getElementById("sess-checkin").style.display="none";
+  document.getElementById("idle-start").style.display=roster.length?"block":"none";
+  document.getElementById("idle-no-team").style.display=roster.length?"none":"block";
+  document.getElementById("idle-waiting").style.display="none";
+}
+function showWaiting(){
+  curPhase="idle";
+  document.getElementById("sess-idle").style.display="block";
+  document.getElementById("sess-checkin").style.display="none";
+  document.getElementById("idle-start").style.display="none";
+  document.getElementById("idle-no-team").style.display="none";
+  document.getElementById("idle-waiting").style.display="block";
+}
+function showCheckin(){
+  curPhase="checkin";
+  document.getElementById("sess-idle").style.display="none";
+  document.getElementById("sess-checkin").style.display="block";
+  buildGrid(); updateCount();
+}
+function switchTab(name){
+  document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.for===name));
+  ["session","rooms","roster"].forEach(t=>{
+    const p=document.getElementById("panel-"+t); if(p) p.style.display=t===name?"block":"none";
+  });
+}
+
+// ── Event wiring ─────────────────────────────────────────
+document.getElementById("tb-session").addEventListener("click",()=>switchTab("session"));
+document.getElementById("tb-rooms").addEventListener("click",()=>switchTab("rooms"));
+document.getElementById("tb-roster").addEventListener("click",()=>switchTab("roster"));
+document.getElementById("add-btn").addEventListener("click",addPerson);
+document.getElementById("r-name").addEventListener("keydown",e=>{ if(e.key==="Enter") addPerson(); });
+document.getElementById("bulk-toggle").addEventListener("click",()=>{
+  const a=document.getElementById("bulk-area"); a.style.display=a.style.display==="none"?"block":"none";
+});
+document.getElementById("bulk-import").addEventListener("click",doBulk);
+document.getElementById("bulk-cancel").addEventListener("click",()=>{ document.getElementById("bulk-area").style.display="none"; });
+document.getElementById("start-btn").addEventListener("click",startSession);
+document.getElementById("go-roster-btn").addEventListener("click",()=>switchTab("roster"));
+document.getElementById("assign-btn").addEventListener("click",assignRooms);
+document.getElementById("reset-btn").addEventListener("click",resetSession);
+document.getElementById("reshuffle-btn").addEventListener("click",doReshuffle);
+document.getElementById("new-session-btn").addEventListener("click",async()=>{ await resetSession(); switchTab("session"); });
+document.getElementById("roster-wrap").addEventListener("click",e=>{
+  const b=e.target.closest("[data-del]"); if(b) removePerson(+b.dataset.del);
+});
+document.getElementById("sess-grid").addEventListener("click",e=>{
+  if(e.target.tagName==="SELECT"||e.target.closest(".tier-sel")) return;
+  const c=e.target.closest("[data-pid]"); if(c) toggleCheckin(+c.dataset.pid);
+});
+document.getElementById("sess-grid").addEventListener("change",e=>{
+  const s=e.target.closest(".tier-sel");
+  if(s){ e.stopPropagation(); setTier(+s.dataset.pid, s.value); }
+});
+
+// ── Init ─────────────────────────────────────────────────
+if(CONFIGURED) {
+  loadRoster();
+  renderRoster();
+  updateBadges();
+
+  // Attach real-time Firebase listener
+  if(sessionRef) {
+    sessionRef.on("value", snapshot => {
+      handleSnapshot(snapshot.val());
+    });
+  } else {
+    // Firebase failed to init — show idle with local roster
+    showIdle();
+  }
+}
+</script>
+</body>
+</html>
