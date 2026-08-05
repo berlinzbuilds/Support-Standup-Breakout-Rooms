@@ -405,14 +405,7 @@ function handleSnapshot(data){
       sessNames=freshNames; checkins=freshCi; showCheckin();
     } else {
       const prev=JSON.stringify(checkins); checkins=freshCi;
-      if(JSON.stringify(checkins)!==prev){
-        sessNames.forEach(n=>{
-          updateCard(n.id);
-          const sel=document.querySelector(`.tier-sel[data-pid="${n.id}"]`);
-          if(sel){ const t=checkins[n.id]?.tier||null; sel.value=t||""; applyTierStyle(sel,t); }
-        });
-        updateCount();
-      }
+      if(JSON.stringify(checkins)!==prev){ buildGrid(); updateCount(); }
     }
   }
 
@@ -518,7 +511,7 @@ function switchTab(name){
 }
 
 // ── Event wiring ─────────────────────────────────────────
-document.getElementById("tb-session").addEventListener("click",()=>switchTab("session"));
+document.getElementById("tb-session").addEventListener("click",()=>{ switchTab("session"); if(curPhase==="checkin") buildGrid(); });
 document.getElementById("tb-rooms").addEventListener("click",()=>switchTab("rooms"));
 document.getElementById("tb-roster").addEventListener("click",()=>switchTab("roster"));
 document.getElementById("add-btn").addEventListener("click",addPerson);
