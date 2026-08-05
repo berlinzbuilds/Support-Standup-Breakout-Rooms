@@ -507,6 +507,7 @@ function showCheckin(){
   buildGrid(); updateCount();
 }
 function switchTab(name){
+  localStorage.setItem("sy_tab", name);
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.for===name));
   ["session","rooms","roster"].forEach(t=>{
     const p=document.getElementById("panel-"+t); if(p) p.style.display=t===name?"block":"none";
@@ -562,6 +563,9 @@ if(CONFIGURED) {
   } else {
     showIdle();
   }
+
+  // Restore last active tab (assigned state will override to "rooms" if needed)
+  switchTab(localStorage.getItem("sy_tab") || "session");
 }
 </script>
 </body>
