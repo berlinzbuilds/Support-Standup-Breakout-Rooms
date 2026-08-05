@@ -292,9 +292,14 @@ function applyTierStyle(el, tier){
 async function saveRoster(){
   if(!rosterRef) return;
   const obj={}; roster.forEach(p=>{ obj[p.id]=p; });
-  await rosterRef.set(obj);
   const el=document.getElementById("save-ok");
-  if(el){ el.textContent="Saved ✓"; el.style.opacity=1; setTimeout(()=>{ el.style.opacity=0; },2000); }
+  try {
+    await rosterRef.set(obj);
+    if(el){ el.style.color="#10b981"; el.textContent="Saved ✓"; el.style.opacity=1; setTimeout(()=>{ el.style.opacity=0; },2000); }
+  } catch(e) {
+    console.error("saveRoster failed:", e);
+    if(el){ el.style.color="#ef4444"; el.textContent="Save failed — check Firebase rules"; el.style.opacity=1; }
+  }
 }
 async function addPerson(){
   const n=document.getElementById("r-name").value.trim(), t=+document.getElementById("r-tier").value;
