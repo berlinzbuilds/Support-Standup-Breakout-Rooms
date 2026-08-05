@@ -324,8 +324,7 @@ function renderRoster(){
     el.innerHTML='<div class="empty" style="padding:2rem;"><p style="margin:0;">No team members yet. Add people above.</p></div>';
     return;
   }
-  const sorted=[...roster].sort((a,b)=>a.tier-b.tier||a.name.localeCompare(b.name));
-  el.innerHTML=sorted.map((p,i)=>
+  el.innerHTML=roster.map((p,i)=>
     `<div class="roster-row">
       <span class="badge ${TCLS[p.tier]}">T${p.tier}</span>
       <span style="flex:1;">${esc(p.name)}</span>
