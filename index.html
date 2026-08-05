@@ -292,9 +292,15 @@ function applyTierStyle(el, tier){
 async function saveRoster(){
   if(!rosterRef) return;
   const obj={}; roster.forEach(p=>{ obj[p.id]=p; });
-  await rosterRef.set(obj);
-  const el=document.getElementById("save-ok");
-  if(el){ el.textContent="Saved ✓"; el.style.opacity=1; setTimeout(()=>{ el.style.opacity=0; },2000); }
+  try {
+    await rosterRef.set(obj);
+    const el=document.getElementById("save-ok");
+    if(el){ el.textContent="Saved ✓"; el.style.opacity=1; setTimeout(()=>{ el.style.opacity=0; },2000); }
+  } catch(e) {
+    const el=document.getElementById("save-ok");
+    if(el){ el.textContent="⚠️ Save failed: "+e.message; el.style.opacity=1; el.style.color="#ef4444"; setTimeout(()=>{ el.style.opacity=0; el.style.color=""; },6000); }
+    console.error("saveRoster failed:", e);
+  }
 }
 async function addPerson(){
   const n=document.getElementById("r-name").value.trim(), t=+document.getElementById("r-tier").value;
