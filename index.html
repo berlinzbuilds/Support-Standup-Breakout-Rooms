@@ -431,7 +431,11 @@ function handleSnapshot(data){
 // ── UI helpers ───────────────────────────────────────────
 function buildGrid(){
   const grid=document.getElementById("sess-grid"); if(!grid) return;
-  grid.innerHTML=sessNames.map(n=>{
+  const sorted=[...sessNames].sort((a,b)=>{
+    const ta=checkins[a.id]?.tier||99, tb=checkins[b.id]?.tier||99;
+    return ta-tb||a.name.localeCompare(b.name);
+  });
+  grid.innerHTML=sorted.map(n=>{
     const st=checkins[n.id]||{}; const tier=st.tier||null;
     const bg=tier?TBGC[tier]:"#f9fafb", fg=tier?TTXC[tier]:"#9ca3af", bc=tier?"transparent":"#d1d5db";
     return `<div class="name-card${st.checked?" checked":""}" data-pid="${n.id}">
@@ -506,6 +510,7 @@ function showCheckin(){
   buildGrid(); updateCount();
 }
 function switchTab(name){
+  localStorage.setItem("sy_tab", name);
   document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.for===name));
   ["session","rooms","roster"].forEach(t=>{
     const p=document.getElementById("panel-"+t); if(p) p.style.display=t===name?"block":"none";
@@ -561,6 +566,10 @@ if(CONFIGURED) {
   } else {
     showIdle();
   }
+
+  // Restore last-viewed tab (Firebase may override to "rooms" if session is assigned)
+  const savedTab = localStorage.getItem("sy_tab");
+  if(savedTab && ["session","rooms","roster"].includes(savedTab)) switchTab(savedTab);
 }
 </script>
 </body>
